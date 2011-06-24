@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+  <link rel="stylesheet" type="text/css" href="../../../boost.css">
+  <title>{{library}} - Header &lt;{{header}}&gt;</title>
+
+
+</head>
+
+
+<body link="#0000ff" vlink="#800080">
+
+<table summary="header" border="0" cellpadding="7" cellspacing="0" width="100%">
+
+  <tbody>
+
+    <tr>
+
+      <td valign="top" width="300">
+      <h3><a href="../../../index.htm"><img alt="C++ Boost" src="../../../boost.png" border="0" height="86" width="277"></a></h3>
+
+      </td>
+
+      <td valign="top">
+      <h1 align="center">Boost Sorting Library</h1>
+
+      <h2 align="center">Header
+&lt;radix_qsort.hpp&gt;</h2>
+
+      </td>
+
+    </tr>
+
+  </tbody>
+</table>
+
+<hr>
+<h2>Contents</h2>
+
+<dl class="page-index">
+
+  <dt><a href="#introduction">Introduction</a></dt>
+
+  <dt><a href="#functions">Functions</a></dt>
+
+  <dl class="page-index">
+
+    <dt><a href="#function-spec">template
+&lt;class T&gt; void radix_qsort(T* data, int length)</a></dt>
+
+    <dt>int create_id_string(const char* fmt, char* dest, ...)</dt>
+
+  </dl>
+
+  <dt><a href="#examples">Example(s)</a></dt>
+
+</dl>
+
+<hr>
+<h2><a name="introduction"></a>Introduction</h2>
+
+<p>This is a hybrid of MSD radix sort and quicksort, and is the
+premier algorithm for sorting strings. It takes the best
+of the two sorts, dropping the tendency of MSD radix sort to have
+varingly horrible performance for certain radices and item sizes and
+the
+tendency of quicksort to have quadratic performance on sorted data. It
+is meant to be used only for objects
+that are to sorted using a string and should be the only sort used for
+such objects if stability is not a requirement because of its speed and
+ablity to sort items of arbitrary length.</p>
+
+<h2><a name="functions"></a>Functions</h2>
+
+<pre><a name="function-spec"></a>template &lt;class T&gt; void radix_qsort(T* data, int length)<br></pre>
+
+<dl class="function-semantics">
+
+  <dt><b>Requires:</b> that for any object t of class
+T, t must be an integral type or t[num] must be defined, t &lt;
+other_t
+must be defined, and t.idstring_qs must be a char* in t.&nbsp;</dt>
+
+  <dt><b>Effects:</b> that data is sorted from
+highest to lowest based upon the string keys.</dt>
+
+  <dt><b>Throws:</b> std::bad_alloc</dt>
+
+  <dt><b>Complexity:</b> O(kN + 2N log N). Much
+faster, in this
+case, than normal quicksort, which would be O(kN * 2N log N), with k
+being the maximum number of bytes examined and N is the number of words.</dt>
+
+  <dd></dd>
+
+  <dt><a name="function-spec"></a><span style="font-family: monospace;"> int create_id_string(const
+char* fmt, char* dest, ...)</span></dt>
+
+</dl>
+
+<dl class="function-semantics">
+
+  <dt></dt>
+
+  <dt><b>Returns:</b> the number of variables
+successfully converted to a byte sequence.</dt>
+  <dt><b>Requires:</b> dest is long enough to hold every single
+byte in
+... . fmt uses this formating: %d, %D, %i, and %I mean int, %f and %F
+mean float, %e, %E, %g, and %G mean double, and %s and %S mean string.
+Use int for pointers, as
+they both have the same size and structure. <span style="font-weight: bold;">Do not use for negative values.</span>
+You cannot use user-defined
+objects as arguments in ... . </dt>
+  <dt><b>Effects:</b>
+dest contains the concateted byte sequences in ... defined by fmt.</dt>
+
+</dl>
+
+<p>Revised<!--webbot bot="Timestamp" S-Type="EDITED" S-Format="%d %B, %Y" startspan -->
+15 March, 2007<!--webbot bot="Timestamp" endspan i-checksum="39359" --> </p>
+
+<p><i>&copy; Copyright Sam Schetterer 2007. All Rights
+Reserved.</i></p>
+
+</body>
+</html>

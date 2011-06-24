@@ -1,0 +1,212 @@
+The standard library provides the following powerful binary search
+algorithms which operate on sorted ranges. Each of these functions
+takes as parameters an iterator range and a search key, and is
+overloaded to take an optional comparison function:
+
+  binary_search  Find an element matching a certain value 
+  lower_bound    Find a value's first order-preserving position
+  upper_bound    Find a value's last order-preserving position
+  equal_range    make_pair(lower_bound(...), upper_bound(...))
+
+If the comparison function is omitted, the search uses the less-than
+operator to compare the search key to elements of the range.
+
+Suppose you tried to use these functions to implement a dictionary
+lookup. A dictionary is composed of entries which contain a word plus
+the word's definition. Well, you'd like to be able to look up a word's
+dictionary entry given just the word, and not be forced to build an
+entire dictionary entry just to do the search, since the definition
+part of the dictionary entry won't be used at all. To experienced
+users of hand-crafted binary searches, this usage is certainly
+familiar and reliable. For example:
+
+// UNTESTED CODE FOLLOWS. FOR EXPOSITION PURPOSES ONLY
+typedef std::string Word;
+typedef std::string Definition;
+typedef std::pair<Word, Definition> DictionaryEntry
+typedef std::vector<DictionaryEntry> Dictionary;
+
+// Almost exactly like std::lower_bound()
+Dictionary::const_iterator word_position(
+    const Dictionary& d,
+    const Word& word)
+{
+  // binary search implementation
+  Dictionary::const_iterator first = d.begin();
+  std::size_t len = d.size();
+  while (len > 0) {
+    const std::size_t half = len >> 1;
+    const Dictionary::const_iterator middle = first + half;
+    if (*middle < word) {
+      first = middle;
+      ++first;
+      len -= half + 1;
+    }
+    else {
+      len = half;
+    }
+  }
+  return first;
+}
+
+// Return a pointer to the definition of the given word, or 0 if the
+// word doesn't appear in the dictionary
+
+const Definition*
+find_definition(const Dictionary& d, const Word& word)
+{
+  Dictionary::const_iterator p = word_position(d, word);
+  return (p == d.end() || p->first != word) ? 0 : &p->second;
+}
+
+// Define a word in the dictionary or throw if already defined
+void define_word(
+  Dictionary& d, 
+  const Word& word, 
+  const Definition& definition)
+{
+  Dictionary::const_iterator p = word_position(d, word);
+  if (p != d.end() && p->first == word) {
+    throw std::exception("duplicate definition");
+  }
+  else {
+    d.insert(d.begin() + (p - d.begin()),
+             DictionaryEntry(word, definition));
+  }
+}
+
+The question is, instead of writing the word_position() function
+above, which is tedious and error-prone, can we reuse the generic
+algorithms in the standard library? This is what Scott Meyers was
+trying to accomplish in the comp.std.c++ thread entitled "Emulating
+map with a sorted vector" <http://www.deja.com/viewthread.xp?AN=675191351>
+
+Certainly, with nearly all implementations** of the standard library,
+we can use the following comparison function object with
+std::lower_bound(), and it will give us the expected results:
+
+// A "heterogeneous comparison object"
+struct CompareEntryWord1
+{
+  bool operator()(const DictionaryEntry& e, const Word& w) const
+    { return e.first < w; }
+};
+
+But is it legal? The standard's position on this question is not
+encouraging. For one thing, 25.3 says that for the algorithms to work
+correctly, the comparison object has to induce a strict weak ordering
+on the values. If we take "the values" to mean the elements of the
+iterator range, then our comparison function clearly fails: you can't
+use it when both arguments are DictionaryEntrys. The standard also
+says the algorithms "assume that the sequence being searched is in
+order according to the implied or explicit comparison function," which
+makes little sense when the comparison function can't compare the
+sequence elements.
+
+Technically, though, we can satisfy the standard's requirements for
+the comparison function by adding an overloaded operator()() to "keep
+the language lawyers happy":
+
+struct CompareEntryWord2
+{
+  // Heterogeneous comparison actually gets used
+  bool operator()(const DictionaryEntry& e, const Word& w) const
+    { return e.first < w; }
+
+  // Homogeneous comparison just to satisfy the legal requirements.
+  bool operator()(
+    const DictionaryEntry& e, const DictionaryEntry&& w) const
+    { return e.first < w.first; }
+};
+
+This version is arguably legal, but it subverts the intent of the
+standard. The authors of that text clearly never meant to leave this
+loophole in there for us. One dead giveaway is that the EFFECTS:
+clause for lower_bound says "Finds the first position into which value
+can be inserted without violating the ordering." Clearly, when the
+value doesn't have the same type as the rest of the range, the clause
+becomes nonsensical***.
+
+Dietmar Kuehl has suggested an alternative which doesn't suffer these
+problems: define a new iterator which wraps
+Dictionary::const_iterator, but returns a const Word& (instead of a
+const DictionaryEntry&) when dereferenced. This approach has two new
+problems, though: 
+
+  1. It won't work for many similar cases where the value to be
+     compared with must be computed from the elements of the range,
+     because an iterator is required to return a reference type when
+     dereferenced. It may well be that no appropriate lvalue exists to
+     which a reference can be returned.
+
+  2. it requires much more code than simply re-writing the binary
+     search algorithm (<http://www.deja.com/getdoc.xp?AN=674894959>
+     shows an example), and is correspondingly more error-prone.
+
+I think "the right answer" in the long run is to figure out how to
+loosen the standard's requirements so that CompareEntryWord1 can be
+guaranteed to work as expected. Matt Austern made a first stab at it
+in <http://www.deja.com/getdoc.xp?AN=674946713>, but was discouraged
+to find that his first attempt, though probably already too
+complicated, wasn't complicated enough to do the job (see
+<http://www.deja.com/getdoc.xp?AN=675191351>).  This is the
+formulation he ended up with:
+
+    comp is a function object whose first argument type is V
+    and whose second argument type is T, and where comp(x, y)
+    is equivalent to comp'(pi(x), y), where comp' is some
+    strict weak ordering on T and where pi is some
+    homomorphism from V to T.  The sequence [first, last) 
+    must be sorted in ascending order by comp'', where
+    comp''(x, y) is equivalent to comp'(pi(x), pi(y)).
+ 
+Even if this is formally correct, it is probably beyond the ken of
+most committee members to verify its correctness, and beyond the ken
+of even most expert programmers to verify that their comparison
+functions satisfy these criteria. That makes it a bad choice for the
+standard on both counts.
+
+The problem with both of these early attempts is that they focus on
+the sort order of the range. This is an obvious way to think of things
+if the range elements and the search key are the same type, but I
+think to solve the problem for the case we're interested in, a shift
+in thinking is required. Strict weak ordering is a great concept for
+sorting, but maybe it's not appropriate for searching.
+
+Suppose, as a simplification, that we think about the search key as
+though it were bound to one of the arguments of the comparison
+function (say, using std::bind2nd for lower_bound()). That gives us a
+simple unary comparison function object operating on elements of the
+range and returning bool. In the lower_bound algorithm, we are
+searching for the first element for which the unary function object
+returns false (or the end position if no such element exists). For
+this to work, of course, the unary function object must return true
+for zero or more initial elements, and false for all the rest. That
+is, the sequence must be /partitioned/ with respect to comp(e, value),
+where value is the search key.  I believe this formulation captures
+what's actually going on with binary_search more generally, and to
+boot, is simpler to express.
+
+I'll post my suggested changes to the standard text tomorrow, in a
+followup article. So long as the standard remains as is, however, we
+will need another solution. I also plan to contribute a small,
+open-source binary search library to boost (www.boost.org) which is
+guaranteed to work with these heterogeneous comparison functions.
+
+-Dave
+
+**SGI's library implementation actually has some fancy "concept checks"
+which try to make sure you're following all the rules at compile time,
+and it would fail to compile the use of the above comparison object
+with lower_bound.
+
+***On the other hand, the EFFECTS: clause is arguably redundant, since
+the result of the algorithm is much more clearly specified by the
+RETURNS: clause, which still makes perfect sense:
+
+   Returns: The furthermost iterator i in the range [first, last] such
+   that for any iterator j in the range [first, i) the following
+   corresponding conditions hold: *j < value or comp(*j, value) !=
+   false  
+
+

@@ -1,0 +1,289 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+
+
+  
+  
+  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type">
+
+
+  
+  
+  <title>Optimizing Radixsort</title>
+</head>
+
+
+<body>
+
+
+<table summary="header" border="0" cellpadding="7" cellspacing="0" width="100%">
+
+
+  <tbody>
+
+
+    <tr>
+
+
+      <td valign="top" width="300"> 
+      
+      
+      
+      <h3><a href="file:///C:/index.htm"><img alt="C++ Boost" src="file:///C:/boost.png" border="0" height="86" width="277"></a></h3>
+
+
+
+    </td>
+
+
+      <td valign="top"> 
+      
+      
+      
+      <h1 align="center">Boost Sorting Library</h1>
+
+
+
+      
+      
+      
+      <h2 align="center">Optimizing Radix Sort</h2>
+
+
+
+    </td>
+
+
+    </tr>
+
+
+  
+  
+  </tbody>
+</table>
+
+
+<br>
+
+
+All of the slowdown in radix sort for user-defined objects is going to
+be in operator[], so the key to a fast sort is in that function. <br>
+
+
+<br>
+
+
+Note: A knowledge of 80x86 assembly lanugage will be helpful in understanding this tutorial<br>
+
+
+<h2>Optimizing operator[] for simple objects</h2>
+
+
+All of this paragraph is dedicated to extracting the bits out of a
+number, because most other cases don't require any bit-shifting at all.
+Many&nbsp;common and hard to see mistakes are in extracting the bits
+out of an integer. Most of the time, the code to do this look something
+like this: return (number &gt;&gt; (bitsOffset * 8)) &amp; 0xff. The
+first optimization that one can do is to replace multiply by 8 to shift
+left by 3, which will remove at least 9-10 clock cycles from the
+operation by avoiding either the lea instruction or the mul
+instruction. Now the optimized function looks like this: (number
+&gt;&gt; (bitsOffset &lt;&lt; 3)) &amp; 0xff. However, there is still
+one more optimization that can still be done, which removes all of the
+bit-shifting completely. It takes the address of the int, casts it to a
+char*, and accesses the bit using that. Also, specify the bitsOffset as
+a register parameter, as it speeds up the function. In assembly language, the change is much easier
+to see. If an application could only use one sort, that sort should be Radix sort<br>
+
+
+<br>
+
+
+original code<br>
+
+
+C++:<br>
+
+<span style="font-family: monospace;">
+inline int byte(unsigned int number, int bitsOffset)</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+{</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+return (number &gt;&gt; (bitsOffset * 8)) &amp; 0xff;</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+}</span><br>
+
+
+Assembly:&nbsp;<br>
+
+<span style="font-family: monospace;">
+//procedure declaration and initilization</span><br>
+
+<span style="font-family: monospace;">
+mov ecx, [ebp + 12]</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+lea exc, [ecx * 8]</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+shr dword ptr [ebp + 8], &nbsp;cl</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+and dword ptr [ebp + 8],&nbsp;ffh</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+mov eax, [ebp + 8] //return in eax</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+//de-init stack</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+ret</span><br>
+
+
+optimized code:<br>
+
+
+C++:<br>
+
+<span style="font-family: monospace;">inline unsigned char optimized_byte(unsigned int number, register int bitsOffset)</span><br>
+
+<span style="font-family: monospace;">
+{</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+&nbsp;&nbsp;&nbsp;&nbsp; return ((char*)&amp;number)[bitsOffset];</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+}</span><br>
+
+
+Assmebly: &nbsp;//number is on stack, bitsOffset is in eax<br>
+
+<span style="font-family: monospace;">
+//procedure declaration, no initilization</span><br>
+
+<span style="font-family: monospace;">
+lea eax, [ebp + 8]</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+mov al, byte ptr [eax + bitsoffset]</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+ret</span><br>
+One can see the difference if one emits the multiply, the and, and
+specifies that the parameters are registers. Including everything done
+by the function, the original code takes about 20 clock cycles when
+inlined. In the optimized code, the function takes about 4 clock cycles
+when inlined, 5 times faster than the original.<br>
+
+
+<br>
+
+
+The code to extract the bits from any integer part of an object will be
+different, but after seeing this example, one should probably have a
+better idea of how to do it in an optimized manner.<br>
+
+
+<h2>Optimizing operator[] for variable-length and complex objects</h2>
+
+
+This paragraph explains how to extract bits from complex
+objects(like a vector of vectors of integers) and from variable length
+objects. For extracting from a more complex object, a vector
+of integers will be used. For variable length object, a string will be used.<br>
+
+
+Complex objects-The best way to extract from a complex object is to
+split it up into many simple objects and use the code described above.
+For example, the unoptimized code to extract a bit from an array of
+integers would probably determine what integer the byte is refering to,
+and then extract that byte from the integer using the method explained
+above. It would look something like this:<br>
+
+<span style="font-family: monospace;">
+inline unsigned char byte(int* item, int bitsOffset)</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+{</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+return optimized_byte(item[bitsOffset &gt;&gt; 2], 4 - bitsOffset % 4);</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+}</span><br>
+
+
+This is pretty fast, but the change that is to be made will tremedously increase the speed of the function<br>
+
+
+<span style="font-family: monospace;">inline unsigned char optimized_byte(int* item, register int bitsOffset)</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+{</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+return ((char*)item)[bitsoffset];</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">
+}</span><br>
+Suprisingly, the speed of the optimized function is the exact same as
+the speed of the last optimized function. The speed of the optimized
+function will run at 4 clock cycles, while the unoptimized function
+will run at
+about 84 clock cycles. Major speed difference, and exctractions using
+similar methods can be
+implemented for almost any item.<br>
+
+<br>
+
+Variable-length objects-a string will be used for this example, and it is pretty simple. To get the x<sup>th</sup> byte from strings of variable length, the code is:<br>
+
+<span style="font-family: monospace;">inline unsigned char byte(char* x, int bitsOffset)</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">{</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">return strlen(x) &lt; bitsOffset ? x[bitsOffset] : 0;</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">}</span><br>
+
+However, this again has the problem of redundant checking and can waste
+a trememdous amount of time checking the length of a string. What
+should be done is this<br>
+
+<span style="font-family: monospace;">struct charpointers</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">{</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">char* letters;</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">int length;</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">charpointer(char* x) :letters(x), size(strlen(x))</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">{}</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">operator char*() const</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">{return letters;}</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">};</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">inline unsigned char byte(const charpointer&amp; x, int bitsOffset)</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">{</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">return x.length &lt; bitsOffset ? x.letters[bitsOffset] : 0;</span><br style="font-family: monospace;">
+
+<span style="font-family: monospace;">}<br>
+</span>Radix sort will be passed the maximum number of bytes to
+examine. However, the best method to use for sorting strings is Radix
+Quicksort, which is a high-speed algorithm for sorting strings.<span style="font-family: monospace;"><br>
+</span><span style="font-family: monospace;"></span>
+</body>
+</html>

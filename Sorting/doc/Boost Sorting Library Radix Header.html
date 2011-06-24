@@ -1,0 +1,449 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  <link rel="stylesheet" type="text/css" href="../../../boost.css">
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  <title>{{library}} - Header &lt;{{header}}&gt;</title>
+</head>
+
+
+<body link="#0000ff" vlink="#800080">
+
+
+
+
+
+
+
+<table summary="header" border="0" cellpadding="7" cellspacing="0" width="100%">
+
+
+
+
+
+
+
+  <tbody>
+
+
+
+
+
+
+    <tr>
+
+
+
+
+
+
+ 
+    <td valign="top" width="300"> 
+      
+      
+      
+      
+      
+      
+      
+      <h3><a href="../../../index.htm"><img alt="C++ Boost" src="../../../boost.png" border="0" height="86" width="277"></a></h3>
+
+
+
+
+
+
+
+    </td>
+
+
+
+
+
+
+
+    <td valign="top"> 
+      
+      
+      
+      
+      
+      
+      
+      <h1 align="center">Boost Sorting Library</h1>
+
+
+
+
+
+
+
+      
+      
+      
+      
+      
+      
+      
+      <h2 align="center">Radix.hpp</h2>
+
+
+
+
+
+
+
+    </td>
+
+
+
+
+
+
+
+  </tr>
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  </tbody>
+</table>
+
+
+
+
+
+
+
+<hr>
+<h2>ContentsA</h2>
+
+
+
+
+
+
+
+<dl class="page-index">
+
+
+
+
+
+
+ 
+  <dt><a href="#introduction">Introduction</a></dt>
+
+
+
+
+
+
+  
+
+
+  <dt><a href="#macros">Macros</a></dt>
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  
+  <dl class="page-index">
+
+
+
+
+
+
+
+    <dt><a href="#macro-spec">BOOST_USE_SSE</a></dt>
+    <dt><a href="#boost_sse">BOOST_SSE_INCLUDE_FILE</a></dt>
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  
+  </dl>
+
+
+
+  <dt><a href="#functions">Functions</a></dt>
+
+
+
+
+
+
+
+  
+  
+  
+
+
+  
+  
+  
+  
+  
+  <dl class="page-index">
+
+
+
+
+
+
+
+    <dt><a href="#function-spec">radix_sort</a></dt>
+
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  
+  </dl>
+
+
+
+
+
+
+
+  <dt><a href="#examples">Example(s)</a></dt>
+
+
+
+
+
+
+
+</dl>
+
+
+
+
+
+
+
+<hr>
+<h2><a name="introduction"></a>Introduction</h2>
+
+
+
+
+
+
+
+<p>This file contains multiple implimentations of LSD (least
+significant digit) radix sort. Radix sort sorts values based off of
+each byte. No comparisons are used, so this algorithm runs in linear
+time. The MSD radix sort is not implemented because it can easily.
+Radix sort's advantages are more easily seen for items with a large
+number of bytes, becuase it does not compare bytes that it knows to be
+already sorted, unlike quicksort. A good example, taken from <span style="text-decoration: underline;">Algorithms in C++</span>,
+by Robert Sedgewick, is to consider the hex values
+abcdefee,&nbsp;abcdefgg,&nbsp;abcdefhh,&nbsp;abcdefjj,&nbsp;abcdefkk,
+and&nbsp;abcdefll.
+Even though the first six characters of each string are the same,
+quicksort will still examine them all, while radix sort will quickly
+figure out that the strings were already sorted up to the sixth
+character, and then sort only the seventh and eigth. In addition, there
+is are versions of radix sort optimized for each of the native values.
+Finally, radix sort does much less compares than other sort, so it
+interferes with processor pipelining much less. However, radix sort
+does have some disadvantages. The object must define operator[] to
+return a char or must be garrunteed not to return a value higher than
+255. In addition, if operator[] is complex, it will severly slow down
+the algorithm. Also, radix sort is slightly harder to implement for items
+of variable length, although it can be done in an optimized manner.
+See <a href="Optimizing%20Radixsort.html">Optimizing RadixSort</a>.
+Unfortunantly, although it is possible to sort individual floats, it is
+nearly impossible to implement a fast way to extract bytes from
+floating point values that will work for objects containing floats
+becuase of the way that bytes are extracted, and&nbsp;quicksort or
+mergesort should be used instead.</p>
+
+
+
+
+
+
+
+<h2><a name="macros"></a>Macros</h2>
+
+
+
+BOOST_USE_SSE<br>
+
+
+
+To use the SSE interface, define this. It increases the speed of the
+float sorting function greatly. The compiler must have the header <span style="font-family: monospace;">defined by <a href="#boost_sse">BOOST_SSE_INCLUDE_FILE</a> </span>and
+the cpu must support SSE instructions. If
+you do not plan to sort floats using radix sort, do not define
+BOOST_USE_SSE<br>
+<br>
+<a name="boost_sse"></a>BOOST_SSE_INCLUDE_FILE<br>
+This is the file to be include that contains sse instructions. The default is xmmintrin.h<br>
+
+
+
+<h2><a name="functions"></a>Functions
+</h2>
+
+
+
+<pre><a name="function-spec"></a>template&lt;class T&gt; void radix_sort(T* data, int size)<br></pre>
+
+
+
+
+
+
+
+<dl class="function-semantics">
+
+
+
+
+
+
+ 
+  <dt><b>Requires:</b> That for any object t of class T, t must be an integral type (excluding double) or t[num] must be defined.</dt>
+
+
+
+
+
+
+
+  <dt><b>Effects:</b> data is sorted from lowest to highest</dt>
+
+
+
+
+
+
+
+  
+  
+  <dt><b>Throws:</b> std::bad_alloc</dt>
+
+
+
+
+
+
+
+  
+
+
+  
+  <dt><b>Complexity:</b> O(k*n),
+&nbsp;where k is the
+number of bytes, n is the number of elements. Byte sizes of 2, 4, 6, 8, and 10 are preferred.</dt>
+  <dt><b>Rationale:</b> The function might appear to have many
+extra variables and pointers, but they speed up the function becuase
+they can be stored in a high-speed register, while normal memory can't.
+In addition, register variables&nbsp;allow more cache hits.</dt>
+
+
+
+
+
+
+
+</dl>
+Revised 
+  <!--webbot bot="Timestamp" S-Type="EDITED" S-Format="%d %B, %Y" startspan --> 15 March, 2007 
+  <!--webbot bot="Timestamp" endspan i-checksum="39359" -->
+
+
+
+
+
+
+<p><i>&copy; Copyright Sam Schetterer 
+  2007. All Rights Reserved.</i></p>
+
+
+
+
+
+
+
+</body>
+</html>
